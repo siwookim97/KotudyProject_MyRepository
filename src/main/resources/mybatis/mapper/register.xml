@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kotudyprj.dao.IRegisterDao">
+   <!-- 회원가입 -->
+   <insert id="registerDao">
+      insert into user(userName,birth,work,userId,userPassword)
+      values
+      (#{param1},#{param2},#{param3},#{param4},#{param5})
+    </insert>
+
+   <!-- 로그인 -->
+   <select id="loginDao" resultType="String">
+      select userId,userPassword from user where userId = #{_userId} and userPassword =
+      #{_userPassword}
+</select>
+
+
+
+
+</mapper>
