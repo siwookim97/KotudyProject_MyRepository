@@ -37,18 +37,24 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
 import com.google.gson.Gson;
+import com.kotudyprj.dao.IKakaoDao;
 import com.kotudyprj.dao.IRegisterDao;
 import com.kotudyprj.dao.IVocabularyNoteDao;
 import com.kotudyprj.dao.IWordsDao;
+import com.kotudyprj.dto.KakaoDto;
+import com.kotudyprj.dto.QuizTemplateDto;
 import com.kotudyprj.dto.RegisterDto;
 import com.kotudyprj.dto.VocabularyNoteDto;
 import com.kotudyprj.dto.WordItemDto;
 import com.kotudyprj.dto.WordSenseDto;
 import com.kotudyprj.dto.WordsDto;
+import com.kotudyprj.service.KakaoAPI;
 
 @CrossOrigin(origins = "http://localhost:3000")
 @RestController
 public class MainController {
+
+	HttpSession loginId; // 로그인 세션 저장위한 변수
 
 	@Autowired // dao 빈에 등록
 	IRegisterDao iRegisterDao;
@@ -59,53 +65,79 @@ public class MainController {
 	@Autowired
 	IVocabularyNoteDao iVocabularyNoteDao;
 
+	@Autowired
+	private KakaoAPI kakaoAPI;
+
+	@Autowired
+	IKakaoDao iKakaoDao;
+
+	static public class Morpheme {
+		final String text;
+		final String type;
+		Integer count;
+
+		public Morpheme(String text, String type, Integer count) {
+			this.text = text;
+			this.type = type;
+			this.count = count;
+		}
+	}
+
+	static public class NameEntity {
+		final String text;
+		final String type;
+		Integer count;
+
+		public NameEntity(String text, String type, Integer count) {
+			this.text = text;
+			this.type = type;
+			this.count = count;
+		}
+	}
+
 	@RequestMapping("/")
 	public String root() throws Exception {
 
 		return "";
 	}
 
-	HttpSession loginId;
+	// 카카오 로그인
+	@GetMapping("/kakaoAuth")
+	public Object kakaoLogin(@RequestParam String code, HttpServletRequest req, KakaoDto kakaoDto) {
 
-	@PostMapping("/register")
-	public String register(@RequestBody RegisterDto registerDto) {
-		iRegisterDao.registerDao(registerDto.getUserName(), registerDto.getBirth(), registerDto.getWork(),
-				registerDto.getUserId(), registerDto.getUserPassword());
-		return registerDto.toString();
+		// 클라이언트의 이메일이 존재할 때 세션에 해당 이메일과 토큰 등록
+		HttpSession session = req.getSession(true);
+		System.out.println("code " + code);
+		String access_Token = kakaoAPI.getAccessToken(code);
+		HashMap<String, Object> userInfo = kakaoAPI.getUserInfo(access_Token);
+		System.out.println("login Controller : " + userInfo);
 
-	}
+		if (userInfo.get("email") != null) {
 
-	@PostMapping("/login")
-	public String login(@RequestBody RegisterDto loginDto, HttpServletRequest req) {
-		String check = iRegisterDao.loginDao(loginDto.getUserId(), loginDto.getUserPassword());
-		if (check == null) {
-			System.out.println("로그인 실패");
-		} else {
-			System.out.println("로그인성공");
+			kakaoDto.setUserId(userInfo.get("email"));
+			iKakaoDao.registerDao(kakaoDto.getUserId());
+			List check = iKakaoDao.loginDao(kakaoDto.getUserId());
+			System.out.println("카톡 아이디" + check);
 			loginId = req.getSession();
-			loginId.setAttribute("userId", loginDto.getUserId());
-
+			loginId.setAttribute("userId", kakaoDto.getUserId());
 		}
-		return loginDto.toString();
+		return userInfo;
 	}
 
-	@PostMapping("/logout")
-	public Object logout(HttpServletRequest req) {
+	// 카카오 로그아웃
+	@PostMapping("/kakaoLogout")
+	public String logout(HttpServletRequest req) {
 
-		loginId.setAttribute("userId", null);
-
-		Object a = loginId.getAttribute("userId");
-		return a;
+		loginId.removeAttribute("userId");
+		return "index";
 	}
-	
 
-	@GetMapping("/checkUser")
+	// 로그인 세션 유지
+	@GetMapping("/getInfo")
 	public Object getInfo() {
 
 		Object a = loginId.getAttribute("userId");
-
 		if (a == null) {
-
 			org.apache.tomcat.jni.Error.osError();
 		}
 		return a;
@@ -119,39 +151,70 @@ public class MainController {
 
 	}
 
-	@PostMapping("/paraphraseCheck")
-	public void test(@RequestBody String argument) {
-		String openApiURL = "http://localhost:8080/paraphraseCheck";
-		String accessKey = "2c349c2b-b687-40ae-bf44-6683c48031f4"; // 발급받은 API Key
+	/*
+	 * @PostMapping("/paraphraseCheck") public void test(@RequestBody String
+	 * argument) { String openApiURL = "http://localhost:8080/paraphraseCheck";
+	 * String accessKey = "2c349c2b-b687-40ae-bf44-6683c48031f4"; // 발급받은 API Key
+	 * 
+	 * Gson gson = new Gson();
+	 * 
+	 * Map<String, Object> request = new HashMap<>();
+	 * 
+	 * request.put("access_key", accessKey); request.put("argument", argument);
+	 * System.out.println("request" + request);
+	 * 
+	 * System.out.println(argument);
+	 * 
+	 * URL url; Integer responseCode = null; String responBody = null;
+	 * 
+	 * try { url = new URL(openApiURL); HttpURLConnection con = (HttpURLConnection)
+	 * url.openConnection(); con.setDoOutput(true);
+	 * 
+	 * DataOutputStream wr = new DataOutputStream(con.getOutputStream());
+	 * wr.write(gson.toJson(request).getBytes("UTF-8")); wr.flush(); wr.close();
+	 * 
+	 * responseCode = con.getResponseCode(); InputStream is = con.getInputStream();
+	 * byte[] buffer = new byte[is.available()]; int byteRead = is.read(buffer);
+	 * responBody = new String(buffer);
+	 * 
+	 * System.out.println("[responseCode] " + responseCode);
+	 * System.out.println("[responBody]"); System.out.println(responBody);
+	 * System.out.print("성공"); } catch (MalformedURLException e) { //
+	 * e.printStackTrace(); System.out.println("실패1"); } catch (IOException e) { //
+	 * e.printStackTrace(); System.out.println("실패2"); } }
+	 */
 
-		// String type = "안녕하세요"; // 분석할 문단 데이터
-		// String question = "안녕하세요";
+	// 단어검색
+	@PostMapping("/searchWord")
+	public List<String> paraphraseCheck(@RequestBody Map<String, String> body) {
 
+		List<String> finalDtoList = new ArrayList<>();
+		// FinalDto finalDto = null;
+		String openApiURL = "http://aiopen.etri.re.kr:8000/WiseNLU";
+		String accessKey = "16738d75-2241-45a6-8c0d-0b06580f2a65"; // 발급받은 API Key
+		String analysisCode = "ner"; // 언어 분석 코드
+		String text = ""; // 분석할 텍스트 데이터
 		Gson gson = new Gson();
 
 		Map<String, Object> request = new HashMap<>();
-		// Map<String, String> argument = new HashMap<>();
+		Map<String, String> argument = new HashMap<>();
 
-		/*
-		 * argument.put("question", question);
-		 */
-		// argument.put("setence1", setence1);
+		argument.put("analysis_code", body.get("analysisCode"));
+		argument.put("text", body.get("text"));
 
 		request.put("access_key", accessKey);
 		request.put("argument", argument);
-		System.out.println("request" + request);
-
-		// System.out.println(argument);
-		System.out.println(argument);
+		System.out.println("argument:" + argument);
 
 		URL url;
 		Integer responseCode = null;
-		String responBody = null;
+		String responBodyJson = null;
+		Map<String, Object> responeBody = null;
 
 		try {
 			url = new URL(openApiURL);
 			HttpURLConnection con = (HttpURLConnection) url.openConnection();
-			// con.setRequestMethod("POST");
+			con.setRequestMethod("POST");
 			con.setDoOutput(true);
 
 			DataOutputStream wr = new DataOutputStream(con.getOutputStream());
@@ -161,21 +224,127 @@ public class MainController {
 
 			responseCode = con.getResponseCode();
 			InputStream is = con.getInputStream();
-			byte[] buffer = new byte[is.available()];
-			int byteRead = is.read(buffer);
-			responBody = new String(buffer);
+			BufferedReader br = new BufferedReader(new InputStreamReader(is));
+			StringBuffer sb = new StringBuffer();
 
-			System.out.println("[responseCode] " + responseCode);
-			System.out.println("[responBody]");
-			System.out.println(responBody);
-			System.out.print("성공");
+			String inputLine = "";
+			while ((inputLine = br.readLine()) != null) {
+				sb.append(inputLine);
+			}
+			responBodyJson = sb.toString();
+
+			// http 요청 오류 시 처리
+			if (responseCode != 200) {
+				// 오류 내용 출력
+				System.out.println("[error] " + responBodyJson);
+
+			}
+
+			responeBody = gson.fromJson(responBodyJson, Map.class);
+			Integer result = ((Double) responeBody.get("result")).intValue();
+			Map<String, Object> returnObject;
+			List<Map> sentences;
+
+			// 분석 요청 오류 시 처리
+			if (result != 0) {
+
+				// 오류 내용 출력
+				System.out.println("[error] " + responeBody.get("result"));
+
+			}
+
+			// 분석 결과 활용
+			returnObject = (Map<String, Object>) responeBody.get("return_object");
+			sentences = (List<Map>) returnObject.get("sentence");
+
+			Map<String, Morpheme> morphemesMap = new HashMap<String, Morpheme>();
+			Map<String, NameEntity> nameEntitiesMap = new HashMap<String, NameEntity>();
+			List<Morpheme> morphemes = null;
+			List<NameEntity> nameEntities = null;
+
+			for (Map<String, Object> sentence : sentences) {
+				// 형태소 분석기 결과 수집 및 정렬
+				List<Map<String, Object>> morphologicalAnalysisResult = (List<Map<String, Object>>) sentence
+						.get("morp");
+
+				for (Map<String, Object> morphemeInfo : morphologicalAnalysisResult) {
+					String lemma = (String) morphemeInfo.get("lemma");
+					Morpheme morpheme = morphemesMap.get(lemma);
+					if (morpheme == null) {
+						morpheme = new Morpheme(lemma, (String) morphemeInfo.get("type"), 1);
+						morphemesMap.put(lemma, morpheme);
+					} else {
+						morpheme.count = morpheme.count + 1;
+					}
+				}
+
+				// 개체명 분석 결과 수집 및 정렬
+				List<Map<String, Object>> nameEntityRecognitionResult = (List<Map<String, Object>>) sentence.get("NE");
+				for (Map<String, Object> nameEntityInfo : nameEntityRecognitionResult) {
+					String name = (String) nameEntityInfo.get("text");
+					NameEntity nameEntity = nameEntitiesMap.get(name);
+					if (nameEntity == null) {
+						nameEntity = new NameEntity(name, (String) nameEntityInfo.get("type"), 1);
+						nameEntitiesMap.put(name, nameEntity);
+					} else {
+						nameEntity.count = nameEntity.count + 1;
+					}
+				}
+			}
+
+			if (0 < morphemesMap.size()) {
+				morphemes = new ArrayList<Morpheme>(morphemesMap.values());
+				morphemes.sort((morpheme1, morpheme2) -> {
+					return morpheme2.count - morpheme1.count;
+				});
+			}
+
+			if (0 < nameEntitiesMap.size()) {
+				nameEntities = new ArrayList<NameEntity>(nameEntitiesMap.values());
+				nameEntities.sort((nameEntity1, nameEntity2) -> {
+					return nameEntity2.count - nameEntity1.count;
+				});
+			}
+
+			// 형태소들 중 명사들에 대해서 많이 노출된 순으로 출력 ( 최대 5개 )
+			morphemes.stream().filter(morpheme -> {
+				return morpheme.type.equals("NNG") || morpheme.type.equals("NNP") || morpheme.type.equals("NNB");
+			}).limit(5).forEach(morpheme -> {
+
+				System.out.println("[명사] " + morpheme.text + " (" + morpheme.count + ")");
+
+				// String part = "동사";
+				// finalDto.setPart(part);
+				// finalDto.setWord(morpheme.text);
+				finalDtoList.add("명사");
+				finalDtoList.add(morpheme.text);
+
+				return;
+			});
+
+			// 형태소들 중 동사들에 대해서 많이 노출된 순으로 출력 ( 최대 5개 )
+			System.out.println("");
+			morphemes.stream().filter(morpheme -> {
+				return morpheme.type.equals("VV");
+			}).limit(5).forEach(morpheme -> {
+				System.out.println("[동사] " + morpheme.text + " (" + morpheme.count + ")");
+				// finalDto.setPart(inputLine("동사"));
+				// finalDto.setWord(morpheme.text);
+				// finalDtoList.add(finalDto);
+				finalDtoList.add("동사");
+				finalDtoList.add(morpheme.text);
+				return;
+			});
+
+			// 인식된 개채명들 많이 노출된 순으로 출력 ( 최대 5개 )
+
 		} catch (MalformedURLException e) {
-			// e.printStackTrace();
-			System.out.println("실패1");
+			e.printStackTrace();
 		} catch (IOException e) {
-			// e.printStackTrace();
-			System.out.println("실패2");
+			e.printStackTrace();
 		}
+		System.out.println(finalDtoList);
+		return finalDtoList;
 	}
 
 	@GetMapping("/oneWord")
@@ -254,41 +423,98 @@ public class MainController {
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
 		}
-		return wordItemDtos;
 
+		return wordItemDtos;
 	}
-	
-	
-	
+
 	@GetMapping("/myPage")
 	public List<String> myPage() {
-		List<String> vocabularyList= new ArrayList<>();
+		List<String> vocabularyList = new ArrayList<>();
 		Object sessionId = loginId.getAttribute("userId");
 		String userId = sessionId.toString();
 
 		vocabularyList = iVocabularyNoteDao.showWord(userId);
-		
+
 		return vocabularyList;
 	}
-	
+
+	// 단어장에 단어 추가
 	@GetMapping("/addToNote")
-	public void addToNote(@RequestParam String q) {
+	public void addToNote(@RequestParam String q, @RequestParam String p) {
 		Object sessionId = loginId.getAttribute("userId");
 		String userId = sessionId.toString();
-		
-		iVocabularyNoteDao.addWord(userId, q);
+		System.out.println("userId : " + userId);
+		System.out.println("q : " + q);
+		System.out.println("mean : " + p);
+
+		// 단어장에 단어가 이미 있는지 확인
+		if (iVocabularyNoteDao.checkWord(userId, q) == 0) {
+			iVocabularyNoteDao.addWord(userId, q, p);
+			/* 나중에 단어장에 들어갔는지 안들어갔는지 중복값을 프론트에 전달하기 */
+		} else {
+			/* 나중에 단어장에 들어갔는지 안들어갔는지 중복값을 프론트에 전달하기 */
+		}
 	}
-	
+
+	// 단어장에서 단어 삭제
 	@GetMapping("/deleteFromNote")
 	public List<String> deleteFromNote(@RequestParam String word) {
-		List<String> vocabularyList= new ArrayList<>();
+		List<String> vocabularyList = new ArrayList<>();
 		Object sessionId = loginId.getAttribute("userId");
 		String userId = sessionId.toString();
-		
+
 		iVocabularyNoteDao.deleteWord(userId, word);
 
 		vocabularyList = iVocabularyNoteDao.showWord(userId);
 
 		return vocabularyList;
 	}
+
+	// 퀴즈로 단어 10개 보내기
+	@GetMapping("/wordQuiz")
+	public List<QuizTemplateDto> wordQuiz() {
+		List<QuizTemplateDto> quizTemplateList = new ArrayList<>();
+		QuizTemplateDto quizTemplate = new QuizTemplateDto();
+
+		// Object sessionId = loginId.getAttribute("userid");
+		// String userId = sessionId.toString();
+
+		List<VocabularyNoteDto> vocabularyNoteList = null;
+		vocabularyNoteList = iVocabularyNoteDao.getVocabularynote();
+
+		for (int n = 0; n < 40; n++) {
+		//	System.out.println("WORD " + n + " : " + vocabularyNoteList.get(n).getWord());
+		//	System.out.println("MEAN " + n + " : " + vocabularyNoteList.get(n).getMean());
+			if (n % 4 == 0) {
+				quizTemplate = new QuizTemplateDto();
+				quizTemplate.setWord(vocabularyNoteList.get(n).getWord());
+				quizTemplate.setWord_mean(vocabularyNoteList.get(n).getMean());
+			} else if (n % 4 == 1) {
+				quizTemplate.setWrong_answer1(vocabularyNoteList.get(n).getMean());
+			} else if (n % 4 == 2) {
+				quizTemplate.setWrong_answer2(vocabularyNoteList.get(n).getMean());
+			} else {
+				quizTemplate.setWrong_answer3(vocabularyNoteList.get(n).getMean());
+				quizTemplateList.add(quizTemplate);
+			}
+			
+		}
+		
+		System.out.println(quizTemplateList);
+
+		return quizTemplateList;
+	}
+
+	// 단어 추가횟수 랭킹
+	@PostMapping("/wordRank")
+	public List<Object> wordRank() {
+		List<Object> wordRankList = new ArrayList<>();
+		System.out.println("wordRank 호출");
+
+		wordRankList.add(iVocabularyNoteDao.wordRankWord());
+		wordRankList.add(iVocabularyNoteDao.wordRankCount());
+
+		return wordRankList;
+	}
+
 }
