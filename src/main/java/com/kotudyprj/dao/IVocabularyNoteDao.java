@@ -16,8 +16,5 @@ public interface IVocabularyNoteDao {
 	public void addWord(@Param(value = "_userId") String userId ,@Param(value = "_word") String q, @Param(value = "_mean") String p);
 	public void deleteWord(@Param(value = "_userId") String userId, @Param(value = "_word") String q);
 	public List<VocabularyNoteDto> getVocabularynote();
-	
-	// wordRank
-	public List<Object> wordRankWord();
-	public List<Object> wordRankCount();
+
 }

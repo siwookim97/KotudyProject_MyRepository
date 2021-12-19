@@ -10,6 +10,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,10 +73,10 @@ public class MainController {
 
 	@Autowired
 	IKakaoDao iKakaoDao;
-	
+
 	@Autowired
 	IUserRankingDao iUserRankingDao;
-	
+
 	@Autowired
 	IWordRankingDao iWordRankingDao;
 
@@ -462,12 +463,11 @@ public class MainController {
 		} else {
 			/* 나중에 단어장에 들어갔는지 안들어갔는지 중복값을 프론트에 전달하기 */
 		}
-		
+
 		if (iWordRankingDao.wordRankingSelect(q) == 0) {
 			iWordRankingDao.wordRankingInsert(q);
 			iWordRankingDao.wordRankingUp(q);
-		}
-		else {
+		} else {
 			iWordRankingDao.wordRankingUp(q);
 		}
 	}
@@ -483,10 +483,9 @@ public class MainController {
 
 		vocabularyList = iVocabularyNoteDao.showWord(userId);
 
-		if(iWordRankingDao.wordRankingSelect(word) == 1) {
+		if (iWordRankingDao.wordRankingSelect(word) == 1) {
 			iWordRankingDao.wordRankingDelete(word);
-		}
-		else {
+		} else {
 			iWordRankingDao.wordRankingDown(word);
 		}
 		return vocabularyList;
@@ -505,8 +504,10 @@ public class MainController {
 		vocabularyNoteList = iVocabularyNoteDao.getVocabularynote();
 
 		for (int n = 0; n < 40; n++) {
-		//	System.out.println("WORD " + n + " : " + vocabularyNoteList.get(n).getWord());
-		//	System.out.println("MEAN " + n + " : " + vocabularyNoteList.get(n).getMean());
+			// System.out.println("WORD " + n + " : " +
+			// vocabularyNoteList.get(n).getWord());
+			// System.out.println("MEAN " + n + " : " +
+			// vocabularyNoteList.get(n).getMean());
 			if (n % 4 == 0) {
 				quizTemplate = new QuizTemplateDto();
 				quizTemplate.setWord(vocabularyNoteList.get(n).getWord());
@@ -519,9 +520,9 @@ public class MainController {
 				quizTemplate.setWrong_answer3(vocabularyNoteList.get(n).getMean());
 				quizTemplateList.add(quizTemplate);
 			}
-			
+
 		}
-		
+
 		System.out.println(quizTemplateList);
 
 		return quizTemplateList;
@@ -533,26 +534,32 @@ public class MainController {
 		Object sessionId = loginId.getAttribute("userId");
 		String userId = sessionId.toString();
 		int point = score.get("score");
-		
-		if(iUserRankingDao.selectQuizRanking(userId) == 0) {
+
+		if (iUserRankingDao.selectQuizRanking(userId) == 0) {
 			iUserRankingDao.createRankingInfo(userId);
 			iUserRankingDao.getQuizResult(userId, point);
-		}
-		else {
-			iUserRankingDao.getQuizResult(userId, point) ;
+		} else {
+			iUserRankingDao.getQuizResult(userId, point);
 		}
 	}
-	 
+
 	// 단어 추가횟수 랭킹
 	@PostMapping("/wordRank")
-	public List<Object> wordRank() {
-		List<Object> wordRankList = new ArrayList<>();
+	public List<List<Object>> wordRank() {
+		List<List<Object>> wordRankingList = new ArrayList<>();
+		List<Object> wordRankingWord = new ArrayList<>();
+		List<Object> wordRankingPoint = new ArrayList<>();
+
 		System.out.println("wordRank 호출");
 
-		wordRankList.add(iVocabularyNoteDao.wordRankWord());
-		wordRankList.add(iVocabularyNoteDao.wordRankCount());
+		wordRankingWord.add(iWordRankingDao.wordRankingWord());
+		wordRankingList.add(wordRankingWord);
+		wordRankingPoint.add(iWordRankingDao.wordRankingPoint());
+		wordRankingList.add(wordRankingPoint);
 
-		return wordRankList;
+		System.out.println(wordRankingList);
+
+		return wordRankingList;
 	}
 
 }

@@ -1,5 +1,7 @@
 package com.kotudyprj.dao;
 
+import java.util.List;
+
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -20,4 +22,8 @@ public interface IWordRankingDao {
 	
 	// delete 컬럼
 	public void wordRankingDelete(@Param("_word") String word);
+	
+	// word rank보내기
+	public List<Object> wordRankingWord();
+	public List<Object> wordRankingPoint();
 }
