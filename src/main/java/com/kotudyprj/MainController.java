@@ -39,7 +39,9 @@ import org.xml.sax.InputSource;
 import com.google.gson.Gson;
 import com.kotudyprj.dao.IKakaoDao;
 import com.kotudyprj.dao.IRegisterDao;
+import com.kotudyprj.dao.IUserRankingDao;
 import com.kotudyprj.dao.IVocabularyNoteDao;
+import com.kotudyprj.dao.IWordRankingDao;
 import com.kotudyprj.dao.IWordsDao;
 import com.kotudyprj.dto.KakaoDto;
 import com.kotudyprj.dto.QuizTemplateDto;
@@ -70,6 +72,12 @@ public class MainController {
 
 	@Autowired
 	IKakaoDao iKakaoDao;
+	
+	@Autowired
+	IUserRankingDao iUserRankingDao;
+	
+	@Autowired
+	IWordRankingDao iWordRankingDao;
 
 	static public class Morpheme {
 		final String text;
@@ -454,6 +462,14 @@ public class MainController {
 		} else {
 			/* 나중에 단어장에 들어갔는지 안들어갔는지 중복값을 프론트에 전달하기 */
 		}
+		
+		if (iWordRankingDao.wordRankingSelect(q) == 0) {
+			iWordRankingDao.wordRankingInsert(q);
+			iWordRankingDao.wordRankingUp(q);
+		}
+		else {
+			iWordRankingDao.wordRankingUp(q);
+		}
 	}
 
 	// 단어장에서 단어 삭제
@@ -467,6 +483,12 @@ public class MainController {
 
 		vocabularyList = iVocabularyNoteDao.showWord(userId);
 
+		if(iWordRankingDao.wordRankingSelect(word) == 1) {
+			iWordRankingDao.wordRankingDelete(word);
+		}
+		else {
+			iWordRankingDao.wordRankingDown(word);
+		}
 		return vocabularyList;
 	}
 
@@ -505,6 +527,22 @@ public class MainController {
 		return quizTemplateList;
 	}
 
+	// 퀴즈 결과 user_ranking table에 저장하기
+	@PostMapping("/getQuizResult")
+	public void getQuizResult(@RequestBody Map<String, Integer> score) {
+		Object sessionId = loginId.getAttribute("userId");
+		String userId = sessionId.toString();
+		int point = score.get("score");
+		
+		if(iUserRankingDao.selectQuizRanking(userId) == 0) {
+			iUserRankingDao.createRankingInfo(userId);
+			iUserRankingDao.getQuizResult(userId, point);
+		}
+		else {
+			iUserRankingDao.getQuizResult(userId, point) ;
+		}
+	}
+	 
 	// 단어 추가횟수 랭킹
 	@PostMapping("/wordRank")
 	public List<Object> wordRank() {
