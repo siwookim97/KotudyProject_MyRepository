@@ -10,7 +10,6 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,14 +38,12 @@ import org.xml.sax.InputSource;
 
 import com.google.gson.Gson;
 import com.kotudyprj.dao.IKakaoDao;
-import com.kotudyprj.dao.IRegisterDao;
 import com.kotudyprj.dao.IUserRankingDao;
 import com.kotudyprj.dao.IVocabularyNoteDao;
 import com.kotudyprj.dao.IWordRankingDao;
 import com.kotudyprj.dao.IWordsDao;
 import com.kotudyprj.dto.KakaoDto;
 import com.kotudyprj.dto.QuizTemplateDto;
-import com.kotudyprj.dto.RegisterDto;
 import com.kotudyprj.dto.VocabularyNoteDto;
 import com.kotudyprj.dto.WordItemDto;
 import com.kotudyprj.dto.WordSenseDto;
@@ -57,11 +54,6 @@ import com.kotudyprj.service.KakaoAPI;
 @RestController
 public class MainController {
 
-	HttpSession loginId; // 로그인 세션 저장위한 변수
-
-	@Autowired // dao 빈에 등록
-	IRegisterDao iRegisterDao;
-
 	@Autowired
 	IWordsDao iWordsDao;
 
@@ -69,16 +61,24 @@ public class MainController {
 	IVocabularyNoteDao iVocabularyNoteDao;
 
 	@Autowired
-	private KakaoAPI kakaoAPI;
+	IKakaoDao iKakaoDao;
 
 	@Autowired
-	IKakaoDao iKakaoDao;
+	KakaoAPI kakaoAPI;
 
 	@Autowired
 	IUserRankingDao iUserRankingDao;
 
 	@Autowired
 	IWordRankingDao iWordRankingDao;
+
+	HttpSession loginId;
+
+	@RequestMapping("/")
+	public String root() throws Exception {
+
+		return "";
+	}
 
 	static public class Morpheme {
 		final String text;
@@ -104,19 +104,11 @@ public class MainController {
 		}
 	}
 
-	@RequestMapping("/")
-	public String root() throws Exception {
-
-		return "";
-	}
-
-	// 카카오 로그인
 	@GetMapping("/kakaoAuth")
 	public Object kakaoLogin(@RequestParam String code, HttpServletRequest req, KakaoDto kakaoDto) {
 
 		// 클라이언트의 이메일이 존재할 때 세션에 해당 이메일과 토큰 등록
 		HttpSession session = req.getSession(true);
-		System.out.println("code " + code);
 		String access_Token = kakaoAPI.getAccessToken(code);
 		HashMap<String, Object> userInfo = kakaoAPI.getUserInfo(access_Token);
 		System.out.println("login Controller : " + userInfo);
@@ -124,32 +116,37 @@ public class MainController {
 		if (userInfo.get("email") != null) {
 
 			kakaoDto.setUserId(userInfo.get("email"));
-			iKakaoDao.registerDao(kakaoDto.getUserId());
+			kakaoDto.setNickName(userInfo.get("nickName"));
+			kakaoDto.setImage(userInfo.get("image"));
+			iKakaoDao.registerDao(kakaoDto.getUserId(), kakaoDto.getNickName(), kakaoDto.getImage());
 			List check = iKakaoDao.loginDao(kakaoDto.getUserId());
-			System.out.println("카톡 아이디" + check);
 			loginId = req.getSession();
 			loginId.setAttribute("userId", kakaoDto.getUserId());
+
 		}
+
 		return userInfo;
 	}
 
-	// 카카오 로그아웃
-	@PostMapping("/kakaoLogout")
-	public String logout(HttpServletRequest req) {
-
-		loginId.removeAttribute("userId");
-		return "index";
-	}
-
-	// 로그인 세션 유지
 	@GetMapping("/getInfo")
 	public Object getInfo() {
 
 		Object a = loginId.getAttribute("userId");
 		if (a == null) {
+
 			org.apache.tomcat.jni.Error.osError();
+
 		}
+
 		return a;
+
+	}
+
+	@PostMapping("/kakaoLogout")
+	public String logout() {
+
+		loginId.removeAttribute("userId");
+		return "index";
 	}
 
 	@GetMapping("/dailyWords")
@@ -160,42 +157,8 @@ public class MainController {
 
 	}
 
-	/*
-	 * @PostMapping("/paraphraseCheck") public void test(@RequestBody String
-	 * argument) { String openApiURL = "http://localhost:8080/paraphraseCheck";
-	 * String accessKey = "2c349c2b-b687-40ae-bf44-6683c48031f4"; // 발급받은 API Key
-	 * 
-	 * Gson gson = new Gson();
-	 * 
-	 * Map<String, Object> request = new HashMap<>();
-	 * 
-	 * request.put("access_key", accessKey); request.put("argument", argument);
-	 * System.out.println("request" + request);
-	 * 
-	 * System.out.println(argument);
-	 * 
-	 * URL url; Integer responseCode = null; String responBody = null;
-	 * 
-	 * try { url = new URL(openApiURL); HttpURLConnection con = (HttpURLConnection)
-	 * url.openConnection(); con.setDoOutput(true);
-	 * 
-	 * DataOutputStream wr = new DataOutputStream(con.getOutputStream());
-	 * wr.write(gson.toJson(request).getBytes("UTF-8")); wr.flush(); wr.close();
-	 * 
-	 * responseCode = con.getResponseCode(); InputStream is = con.getInputStream();
-	 * byte[] buffer = new byte[is.available()]; int byteRead = is.read(buffer);
-	 * responBody = new String(buffer);
-	 * 
-	 * System.out.println("[responseCode] " + responseCode);
-	 * System.out.println("[responBody]"); System.out.println(responBody);
-	 * System.out.print("성공"); } catch (MalformedURLException e) { //
-	 * e.printStackTrace(); System.out.println("실패1"); } catch (IOException e) { //
-	 * e.printStackTrace(); System.out.println("실패2"); } }
-	 */
-
-	// 단어검색
 	@PostMapping("/searchWord")
-	public List<String> paraphraseCheck(@RequestBody Map<String, String> body) {
+	public List<String> paraphraseCheck2(@RequestBody Map<String, String> body) {
 
 		List<String> finalDtoList = new ArrayList<>();
 		// FinalDto finalDto = null;
@@ -317,35 +280,73 @@ public class MainController {
 
 			// 형태소들 중 명사들에 대해서 많이 노출된 순으로 출력 ( 최대 5개 )
 			morphemes.stream().filter(morpheme -> {
-				return morpheme.type.equals("NNG") || morpheme.type.equals("NNP") || morpheme.type.equals("NNB");
+				return morpheme.type.equals("NNG") || morpheme.type.equals("NNB");
 			}).limit(5).forEach(morpheme -> {
 
 				System.out.println("[명사] " + morpheme.text + " (" + morpheme.count + ")");
 
-				// String part = "동사";
-				// finalDto.setPart(part);
-				// finalDto.setWord(morpheme.text);
 				finalDtoList.add("명사");
+				finalDtoList.add(morpheme.text);
+
+				return;
+			});
+			morphemes.stream().filter(morpheme -> {
+				return morpheme.type.equals("NNP");
+			}).limit(5).forEach(morpheme -> {
+
+				System.out.println("[고유명사] " + morpheme.text + " (" + morpheme.count + ")");
+
+				finalDtoList.add("고유명사");
+				finalDtoList.add(morpheme.text);
+
+				return;
+			});
+
+			morphemes.stream().filter(morpheme -> {
+				return morpheme.type.equals("NP");
+			}).limit(5).forEach(morpheme -> {
+
+				System.out.println("[대명사] " + morpheme.text + " (" + morpheme.count + ")");
+
+				finalDtoList.add("대명사");
 				finalDtoList.add(morpheme.text);
 
 				return;
 			});
 
 			// 형태소들 중 동사들에 대해서 많이 노출된 순으로 출력 ( 최대 5개 )
-			System.out.println("");
+
 			morphemes.stream().filter(morpheme -> {
 				return morpheme.type.equals("VV");
 			}).limit(5).forEach(morpheme -> {
 				System.out.println("[동사] " + morpheme.text + " (" + morpheme.count + ")");
-				// finalDto.setPart(inputLine("동사"));
-				// finalDto.setWord(morpheme.text);
-				// finalDtoList.add(finalDto);
+
 				finalDtoList.add("동사");
 				finalDtoList.add(morpheme.text);
 				return;
 			});
 
-			// 인식된 개채명들 많이 노출된 순으로 출력 ( 최대 5개 )
+			morphemes.stream().filter(morpheme -> {
+				return morpheme.type.equals("MM") || morpheme.type.equals("MAG") || morpheme.type.equals("MAJ");
+			}).limit(5).forEach(morpheme -> {
+				System.out.println("[수식언] " + morpheme.text + " (" + morpheme.count + ")");
+
+				finalDtoList.add("관형사");
+				finalDtoList.add(morpheme.text);
+				return;
+			});
+
+			morphemes.stream().filter(morpheme -> {
+				return morpheme.type.equals("JKS") || morpheme.type.equals("JKC") || morpheme.type.equals("JKG")
+						|| morpheme.type.equals("JKO") || morpheme.type.equals("JKB") || morpheme.type.equals("JKV")
+						|| morpheme.type.equals("JKQ") || morpheme.type.equals("JX") || morpheme.type.equals("JC");
+			}).limit(5).forEach(morpheme -> {
+				System.out.println("[조사] " + morpheme.text + " (" + morpheme.count + ")");
+
+				finalDtoList.add("조사");
+				finalDtoList.add(morpheme.text);
+				return;
+			});
 
 		} catch (MalformedURLException e) {
 			e.printStackTrace();
@@ -369,8 +370,11 @@ public class MainController {
 		Document docWord = null;
 		try {
 			// OpenApi호출
+
+			System.out.println("======== 한국어 기초사전 API 호출 ========");
+
 			String word = null; // example 검색을 위한 word
-			String urlStrWord = "https://krdict.korean.go.kr/api/search?" + "key=7D322367B7327AAC82C9103718069DB4" // 인증키
+			String urlStrWord = "https://krdict.korean.go.kr/api/search?" + "key=FAFF5405FEE6910E824515B8B9A2BA08" // 인증키
 					+ "&q=" + q; // 검색 키워드
 			URL urlWord = new URL(urlStrWord);
 			HttpURLConnection urlconnectionWord = (HttpURLConnection) urlWord.openConnection();
@@ -416,11 +420,9 @@ public class MainController {
 						for (int h = 1; h < nodeWord.getTextContent().length(); h++) {
 							definition.append(nodeWord.getTextContent().charAt(h));
 						}
-						/***********************************************************************************************/
 
-						/***********************************************************************************************/
 						wordSenseDto.setSense_order(nodeWord.getTextContent().charAt(0) - 48); // Char to Integer ->
-																								// ASCII 48 빼준다
+						// ASCII 48 빼준다
 						wordSenseDto.setDefinition(definition.toString());
 						wordSenseDtos.add(wordSenseDto);
 						wordItemDto.setSense(wordSenseDtos);
@@ -447,14 +449,10 @@ public class MainController {
 		return vocabularyList;
 	}
 
-	// 단어장에 단어 추가
 	@GetMapping("/addToNote")
 	public void addToNote(@RequestParam String q, @RequestParam String p) {
 		Object sessionId = loginId.getAttribute("userId");
 		String userId = sessionId.toString();
-		System.out.println("userId : " + userId);
-		System.out.println("q : " + q);
-		System.out.println("mean : " + p);
 
 		// 단어장에 단어가 이미 있는지 확인
 		if (iVocabularyNoteDao.checkWord(userId, q) == 0) {
@@ -491,7 +489,6 @@ public class MainController {
 		return vocabularyList;
 	}
 
-	// 퀴즈로 단어 10개 보내기
 	@GetMapping("/wordQuiz")
 	public List<QuizTemplateDto> wordQuiz() {
 		List<QuizTemplateDto> quizTemplateList = new ArrayList<>();
@@ -536,7 +533,7 @@ public class MainController {
 		int point = score.get("score");
 
 		if (iUserRankingDao.selectQuizRanking(userId) == 0) {
-			iUserRankingDao.createRankingInfo(userId);
+			// iUserRankingDao.createRankingInfo(userId);
 			iUserRankingDao.getQuizResult(userId, point);
 		} else {
 			iUserRankingDao.getQuizResult(userId, point);
@@ -557,9 +554,33 @@ public class MainController {
 		wordRankingPoint.add(iWordRankingDao.wordRankingPoint());
 		wordRankingList.add(wordRankingPoint);
 
-		System.out.println(wordRankingList);
-
 		return wordRankingList;
+	}
+
+	@PostMapping("/userRank")
+	public List<List<Object>> userRank(KakaoDto kakaoDto) {
+		iUserRankingDao.createRankingInfo(kakaoDto.getUserId(), kakaoDto.getImage());
+
+		List<List<Object>> userRankingList = new ArrayList<>();
+		List<Object> userRankingUserId = new ArrayList<>();
+		List<Object> userRankingNickName = new ArrayList<>();
+		List<Object> userRankingImage = new ArrayList<>();
+		List<Object> userRankingPoint = new ArrayList<>();
+
+		System.out.println("userRank 호출");
+
+		userRankingUserId.add(iUserRankingDao.userRankingUserId());
+		userRankingList.add(userRankingUserId);
+		userRankingPoint.add(iUserRankingDao.userRankingPoint());
+		userRankingList.add(userRankingPoint);
+		System.out.println("point : " + userRankingPoint);
+		userRankingImage.add(iUserRankingDao.userRankingImage());
+		userRankingList.add(userRankingImage);
+
+		// userRankingUserId.add(iUserRankingDao.userRankingPoint());
+		// userRankingList.add(userRankingPoint);
+
+		return userRankingList;
 	}
 
 }

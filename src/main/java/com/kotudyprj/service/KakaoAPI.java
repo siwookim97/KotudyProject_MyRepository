@@ -108,14 +108,23 @@ public class KakaoAPI {
               JsonParser parser = new JsonParser();
               JsonElement element = parser.parse(result);
               
+              
               JsonObject properties = element.getAsJsonObject().get("properties").getAsJsonObject();
               JsonObject kakao_account = element.getAsJsonObject().get("kakao_account").getAsJsonObject();
+            
+              // JsonObject test =  element.getAsJsonObject().get("id").getAsJsonObject();
+              //String id = test.getAsJsonObject().get("id").getAsString();
               
+              String image= properties.getAsJsonObject().get("profile_image").getAsString();
               String nickname = properties.getAsJsonObject().get("nickname").getAsString();
               String email = kakao_account.getAsJsonObject().get("email").getAsString();
+            //  String age = kakao_account.getAsJsonObject().get("age_range").getAsString();
               
+              userInfo.put("profile_image", image);
               userInfo.put("nickname", nickname);
               userInfo.put("email", email);
+             // userInfo.put("age_range", age);
+              //userInfo.put("id", id);
               
           } catch (IOException e) {
               // TODO Auto-generated catch block
@@ -133,7 +142,7 @@ public class KakaoAPI {
           try {
               URL url = new URL(reqURL);
               HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
+              conn.setRequestMethod("POST");
               conn.setRequestProperty("Authorization", "Bearer " + access_Token);
               
               int responseCode = conn.getResponseCode();

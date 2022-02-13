@@ -26,4 +26,6 @@ public interface IWordRankingDao {
 	// word rank보내기
 	public List<Object> wordRankingWord();
 	public List<Object> wordRankingPoint();
+	
+	
 }
