@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.annotation.RequestScope;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -49,6 +50,13 @@ import com.kotudyprj.dto.WordItemDto;
 import com.kotudyprj.dto.WordSenseDto;
 import com.kotudyprj.dto.WordsDto;
 import com.kotudyprj.service.KakaoAPI;
+
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 @CrossOrigin(origins = "http://localhost:3000")
 @RestController
@@ -111,14 +119,18 @@ public class MainController {
 		HttpSession session = req.getSession(true);
 		String access_Token = kakaoAPI.getAccessToken(code);
 		HashMap<String, Object> userInfo = kakaoAPI.getUserInfo(access_Token);
-		System.out.println("login Controller : " + userInfo);
+		// System.out.println("login Controller : " + userInfo);
 
 		if (userInfo.get("email") != null) {
 
 			kakaoDto.setUserId(userInfo.get("email"));
-			kakaoDto.setNickName(userInfo.get("nickName"));
-			kakaoDto.setImage(userInfo.get("image"));
+			kakaoDto.setNickName(userInfo.get("nickname"));
+			kakaoDto.setImage(userInfo.get("profile_image"));
+
 			iKakaoDao.registerDao(kakaoDto.getUserId(), kakaoDto.getNickName(), kakaoDto.getImage());
+			if (iUserRankingDao.checkRankingUserId(kakaoDto.getUserId()) == null) {
+				iUserRankingDao.createRankingInfo(kakaoDto.getUserId(), kakaoDto.getNickName(), kakaoDto.getImage());
+			}
 			List check = iKakaoDao.loginDao(kakaoDto.getUserId());
 			loginId = req.getSession();
 			loginId.setAttribute("userId", kakaoDto.getUserId());
@@ -357,6 +369,29 @@ public class MainController {
 		return finalDtoList;
 	}
 
+	// 인증서 SSL 회피
+	public void sslTrustAllCerts() {
+		TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
+			public X509Certificate[] getAcceptedIssuers() {
+				return null;
+			}
+
+			public void checkClientTrusted(X509Certificate[] certs, String authType) {
+			}
+
+			public void checkServerTrusted(X509Certificate[] certs, String authType) {
+			}
+		} };
+		SSLContext sc;
+		try {
+			sc = SSLContext.getInstance("SSL");
+			sc.init(null, trustAllCerts, new SecureRandom());
+			HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
 	@GetMapping("/oneWord")
 	public List<WordItemDto> oneWord(@RequestParam String q) {
 
@@ -368,6 +403,8 @@ public class MainController {
 		factoryWord.setNamespaceAware(true);
 		DocumentBuilder builderWord;
 		Document docWord = null;
+		sslTrustAllCerts(); // SSL 인증서 회피
+
 		try {
 			// OpenApi호출
 
@@ -489,6 +526,7 @@ public class MainController {
 		return vocabularyList;
 	}
 
+	// 단어 퀴즈
 	@GetMapping("/wordQuiz")
 	public List<QuizTemplateDto> wordQuiz() {
 		List<QuizTemplateDto> quizTemplateList = new ArrayList<>();
@@ -526,18 +564,15 @@ public class MainController {
 	}
 
 	// 퀴즈 결과 user_ranking table에 저장하기
-	@PostMapping("/getQuizResult")
-	public void getQuizResult(@RequestBody Map<String, Integer> score) {
-		Object sessionId = loginId.getAttribute("userId");
-		String userId = sessionId.toString();
-		int point = score.get("score");
+	@GetMapping("/getQuizResult")
+	public void getQuizResult(@RequestParam int score) {
 
-		if (iUserRankingDao.selectQuizRanking(userId) == 0) {
-			// iUserRankingDao.createRankingInfo(userId);
+		Object id = (String) loginId.getAttribute("userId");
+		String userId = (String) id;
+		int point = score;
+
+		if (point > 0)
 			iUserRankingDao.getQuizResult(userId, point);
-		} else {
-			iUserRankingDao.getQuizResult(userId, point);
-		}
 	}
 
 	// 단어 추가횟수 랭킹
@@ -559,11 +594,10 @@ public class MainController {
 
 	@PostMapping("/userRank")
 	public List<List<Object>> userRank(KakaoDto kakaoDto) {
-		iUserRankingDao.createRankingInfo(kakaoDto.getUserId(), kakaoDto.getImage());
+		// System.out.println("등록체크 : " + kakaoDto.getNickName());
 
 		List<List<Object>> userRankingList = new ArrayList<>();
 		List<Object> userRankingUserId = new ArrayList<>();
-		List<Object> userRankingNickName = new ArrayList<>();
 		List<Object> userRankingImage = new ArrayList<>();
 		List<Object> userRankingPoint = new ArrayList<>();
 
@@ -582,5 +616,4 @@ public class MainController {
 
 		return userRankingList;
 	}
-
 }

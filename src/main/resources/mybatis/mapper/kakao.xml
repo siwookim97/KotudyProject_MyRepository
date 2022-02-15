@@ -10,18 +10,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
       (#{param1},#{param2},#{param3}) 
     </insert>
     
-	<!-- 로그인 -->
-	<select id="loginDao" resultType="String">
-		select userId from user where
-		userId = #{_userId}
-	</select>
+   <!-- 로그인 -->
+   <select id="loginDao" resultType="String">
+      select userId from user where
+      userId = #{_userId}
+   </select>
 
-	<select id="getNickName" resultType="String">
-		select nickName from user
-		where userId = #{_userId}
-	</select>
-	<select id="getImage" resultType="String">
-		select image from user where
-		userId = #{_userId}
-	</select>
+   <select id="getNickName" resultType="String">
+      select nickName from user
+      where userId = #{_userId}
+   </select>
+   
+   <select id="getImage" resultType="String">
+      select image from user where
+      userId = #{_userId}
+   </select>
 </mapper>

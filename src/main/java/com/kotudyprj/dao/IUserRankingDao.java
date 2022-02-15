@@ -9,9 +9,12 @@ import org.apache.ibatis.annotations.Param;
 public interface IUserRankingDao {
 	
 	// user_ranking 테이블에 사용자의 정보 생성
-	public void createRankingInfo(Object userId, Object image);
+	public void createRankingInfo(Object userId, Object nickName, Object image);
 	
-	// user_rankgin 테이블 정보 확인
+	// user_ranking 테이블 PRIMARY_KEY 중복 확인
+	public String checkRankingUserId(Object userId);
+	
+	// user_ranking 테이블 정보 확인
 	public int selectQuizRanking(@Param("_userId") String userId);
 	
 	// user_ranking 테이블 정보 변경
