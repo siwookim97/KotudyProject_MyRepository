@@ -128,9 +128,10 @@ public class MainController {
 			kakaoDto.setImage(userInfo.get("profile_image"));
 
 			iKakaoDao.registerDao(kakaoDto.getUserId(), kakaoDto.getNickName(), kakaoDto.getImage());
-			if (iUserRankingDao.checkRankingUserId(kakaoDto.getUserId()) == null) {
+			//if (iUserRankingDao.checkRankingUserId(kakaoDto.getUserId()) == null) {
 				iUserRankingDao.createRankingInfo(kakaoDto.getUserId(), kakaoDto.getNickName(), kakaoDto.getImage());
-			}
+			//}
+			System.out.println(kakaoDto.getUserId() + " =========아이디");
 			List check = iKakaoDao.loginDao(kakaoDto.getUserId());
 			loginId = req.getSession();
 			loginId.setAttribute("userId", kakaoDto.getUserId());
