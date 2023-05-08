@@ -1,6 +1,5 @@
 package com.kotudyprj.dto;
 
-// 프론트로 퀴즈 문항
 public class QuizTemplateDto {
 
 	private String word;
