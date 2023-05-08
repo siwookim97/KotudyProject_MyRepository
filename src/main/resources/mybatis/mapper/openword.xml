@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kotudyprj.dao.IOpenWordDao">
+
+   <!-- openDic 테이블 insert -->
+   <insert id="addtoOpendic">
+      insert into open_dic (userId, word, mean, morpheme,category)
+      values
+      (#{_userId}, #{_word},#{_mean},#{_morpheme},#{_category})
+   </insert>
+   
+   <!-- openDic 테이블 delete -->
+   <delete id="deletetoOpendic">
+      delete from open_dic where id = #{_id}
+   </delete>
+   
+   <!-- openDic 테이블 select -->
+   <select id="loadtoOpendic" resultType="com.kotudyprj.dto.OpenWordDto">
+      select * from open_dic where userId = #{_userId}
+   </select>
+   <select id="loadAllOpendic" resultType="com.kotudyprj.dto.OpenWordDto">
+      select * from open_dic
+   </select>
+   
+   <!-- openDic 테이블 카테고리로 delete -->
+   <delete id="deletetoOpencategory">
+      delete from open_dic where userId = #{_userId} and category = #{_category}
+   </delete>
+
+</mapper>
